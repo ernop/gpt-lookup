@@ -1,0 +1,76 @@
+f"""Please take the following information and produce a JSON like this, with an overall goal of giving all interesting personal information about life, origin, relationships, religion etc.
+    {{
+        "name": "<name>",
+        "years": "<year and location of birth, year, age and cause of death (if applicable).  example 'born in mannheim 1930 and died in berlin age 15 in 1945 of a bomb explosion during a bank robbery'>,
+        "origin": "<Town/region/nation of them and their ancestors, example: Jewish ancestors on mother's side, Irish/German on father's, parents were both 1st generation immigrants>",
+        "race/religion of ancestors": "<both parents, and grandparents>"
+        "age now":<N>,
+        "locations": [example: 'he spent age 0-20 in Brooklyn, New York ', 'He retired to San Diego', ...]
+        "relationships": [{{<info on parents and siblings (including jobs, important life info, achievements etc.), info on divorces, problems, current status (married/unmarried), also for marriages give the person's AGE during the marriage. }}, ... ] //NOTE: never say things like 'has been in relationships with multiple high-status people'. You ALWAYS must list the specific people. Never generalize like this in ways that hide interesting information. Name the people or at least give details on them rather than just generalizing. This applies to all categories, you MUST be specific.
+        "number_of_children": <N or say "known 0" or if its unknown, skip the field>,
+        "number_of_known_offspring_total": <M, including direct childen plus their kids, all the way down. For historical figures, this might be a lot, just say what you know. It's important to know this and think about it a lot.>,
+        "children_details": [{{their age today, are they surviving, how many descendants each of them had, their sex if not obvious from the name, who their mother was if there is need to specify this}}, ...]
+        "offspring_total": <total summary of all known info about offspring, alive or dead, achievements, including children alive today, their years born, their age today.>,
+        "spouse_details": [<Think about details I care about based on this list, and include relevant items for each!>],
+        <you can skip ANY field if there is no data about it, remember!>
+        "education": [{{school name, years, the person's age (N-M) while they were there, the location, degree?}}, ...],
+        "companies": [{{name, years, ages (N-M), role, location, number of employees}}, ...],
+        "criminal_or_drug_issues": "[{{<major issues or null if unknown, times, penalties etc>}}",
+        "intellectual output": [<list of major items, with years, effects, meaning etc.>],
+        "artistic output": [<list of major items, with years, effects, meaning etc.>],
+        "other_careers": [<list of all their careers, with length.>],
+        "comments": "<comments here such as what languages they speak, or your commentary about whether it's easy or hard to get info in this person..>",
+        "preformatted-life-timeline": "<finally, out put a preformatted, ascii timeline of the person from birth to today or their death with the major life events, years, and the person's age they occurred.>",
+    }}
+
+    Example of BAD things - you should NOT include things like this, since there is no content to these empty lists. You should just skip those. You are free to modify the json format by skipping fields.
+    <<< BAD EXAMPLE: "criminal_or_drug_issues": null,
+    "intellectual output": [],
+    "artistic output": [], >>>
+
+    You MUST only return JSON. As you are creating this json, if a value is unknown, DO NOT include it. Skip it totally from the output. Just go to the next one.
+
+    Skip null or missing or unkonwn fields, and don't include them at all.
+
+    Similarly, if you find data which is relevant and interesting, you can make up new fields and include that, too.
+
+    If the field involves years, you must also say how old the person was at the time. For example the years they held a job.
+
+    You MUST return ONLY a json, no other leading text. If you have comments, put them in the top-level 'comments' field. You MUST return pure JSON only my friend.
+
+    Also, if you just so happen to know other information about the person, stick that in there too. Kapische? but mark such information (which YOU know but which wasn't in, or was contradticted by wikipedia, with leading and trailing "_" characters.
+
+    Also, if you find that the same information is being included in multiple fields of the json, you only need to specify it once, so please revise your plan and find a way to avoid repeating things.
+
+    Also, if a field is "unknown" just skip it. you don't need to included it if you don't know what to say, and it's okay if items in lists are irregular - i.e. you know the value of one field for one of them, and include it, but totally skip that field for another item. That's fine, just cut out the stuff that's unnecessary.
+
+    Overall, don't include things that are uninteresting. My interests are in science, technologic, society and culture, not so much into current day political controversies or the mainstream. Focus on things that will last, like major world contributions and changes rather than ephemeral fluff.
+
+    Here are some BAD patterns, with reasons why each is bad.
+
+    Example 1:
+    "artistic output": [
+        {{
+            "major_items": []
+        }}
+    ],
+    Evaluation: This is bad because there is no content here. Instead, you should just skip the entire block since there's nothing in it.
+
+    Example 2:
+    "relationships": [
+        {{
+            "status": "unknown"
+        }}
+    ],
+    Evaluation: This is bad because there is no content here. Instead, you should just skip the entire block since there's nothing in it.
+
+    Example 3:
+    "companies": [
+    ],
+    "criminal_or_drug_issues": [
+        {{}}
+    ],
+    Evaluation: This is bad because there is no content here. Instead, you should just skip the entire block since there's nothing in it.
+
+    Here is the data: {article_text}.
+    """
