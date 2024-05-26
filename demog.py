@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import time
 import sys
 import json
 import re
@@ -12,6 +13,10 @@ from datetime import datetime
 CONFIG_FILE = 'config.json'
 API_KEY_FILE = 'apikey.txt'
 USER_AGENT = 'DemographicsLookupBot/1.0 (https://example.org/demographicslookupbot/; contact@example.org)'
+LANG_CODES = ['en', 'es', 'de', 'jp', 'fr', 'ar', 'iu','sv','ko','mn']
+#~ LANG_CODES = ['en', 'de']
+MAX_CHARS=120000
+#~ LANG_CODES = ['en', 'es']
 
 def setup_logging():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -24,7 +29,16 @@ def strip_html_tags(text):
     return re.sub(clean, '', text)
 
 def extract_json_from_response(response_content):
-    json_pattern = re.compile(r'json\s*(\{.*\})', re.DOTALL)  # Match the JSON object with possible "json" prefix
+    json_pattern = re.compile(r'json\s*(\{.*\})', re.DOTALL)
+    response_content=response_content.replace('```plaintext','').replace('```','')
+
+    #lets line-wise split out and remove comments?
+    parts=response_content.split('\n')
+    response_content2='\n'.join([p.split('//')[0] for p in parts])
+    if response_content!= response_content2:
+        print("diff.")
+        response_content=response_content2
+
     match = json_pattern.search(response_content)
     if match:
         return match.group(1)  # Return the JSON object excluding the "json" prefix
@@ -35,34 +49,6 @@ def extract_json_from_response(response_content):
             return match.group(1)
         else:
             raise ValueError("No JSON content found in the response")
-
-
-def summarize_info_and_produce_blurb(article_text):
-    openai.api_key = load_apikey()
-
-    prompt_template = load_prompt()
-    prompt=prompt_template.format(article_text=article_text)[:50000]
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=3500
-    )
-
-    # Extract and load the JSON content from the response
-    response_content = response.choices[0].message['content'].strip()
-    json_content = extract_json_from_response(response_content)
-    try:
-        person_data = json.loads(json_content)
-    except Exception as ex:
-        print(json_content)
-        #this is when openai doesn't actually return json.
-        print(ex)
-        sys.exit(3)
-
-    return person_data
 
 def setup_argparse():
     parser = argparse.ArgumentParser(description='Personal Demographics Lookup Tool')
@@ -91,11 +77,92 @@ def load_prompt():
     with open('prompt.txt', 'r') as file:
         return file.read()
 
-def download_wikipedia_article(title=None, pageid=None):
+
+def get_filling(space_avail, items):
+    answer = 0
+
+    #the dumb way. many ways to do this faster but whatever
+    while True:
+        if sum([len(el[:answer]) for el in items]) >= space_avail:
+            break
+
+        answer=answer+1
+        #break from loop if we're longer than all.
+        doBreak = True
+        if (any([answer<=len(el) for el in items])):
+            continue
+
+        #if we already include all, well, no problem.
+        break
+    return answer
+
+def format_for_prompt(atl):
+    return f'Language source: {atl[2]}, Regarding: "{atl[1]}": {atl[0]}'
+
+def summarize_info_and_produce_blurb(article_text_title_lang):
+    openai.api_key = load_apikey()
+    prompt_template = load_prompt()
+    english_content = format_for_prompt([at for at in article_text_title_lang if at[2] == 'en'][0])[:35000]
+    #we also truncate hard english.
+
+    other_languages_content = [format_for_prompt(at) for at in article_text_title_lang if at[2] != 'en']
+
+    remaining = MAX_CHARS - len(english_content)
+
+    #how much is left to take from each of them?
+    n = get_filling(remaining, other_languages_content)
+
+    joined=f"{english_content} - \r\n\r\n{','.join([aa[:n] for aa in other_languages_content] )}"
+
+    start_time=time.time()
+    prompt=prompt_template.format(article_text=joined)[:MAX_CHARS]
+    arts=','.join([f'Taking {n>len(el) and "all" or n} of {el[:40]}' for el in other_languages_content])
+    print(f"Taking first N{n} characters of other lang articles: {arts} Prompt length: {len(prompt)}\tQuery start time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
+    response = openai.ChatCompletion.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=4000
+    )
+
+    fn='%Y%m%d_%H%M%S_response.txt'
+    print(fn)
+    end_time=time.time()
+    filename = time.strftime(fn, time.localtime(end_time))
+
+    # Save response details to a file
+    with open(filename, 'w') as file:
+        json.dump(response.choices[0].message['content'], file, indent=4)
+
+    # Extract and load the JSON content from the response
+    response_content = response.choices[0].message['content'].strip()
+
+    print(f"Response length: {len(response_content)}, query time: {end_time - start_time:.2f} seconds")
+
+    try:
+        json_content = extract_json_from_response(response_content)
+    except Exception as ex1:
+        print(json_content)
+        #this is when openai doesn't actually return json.
+        print(ex1)
+        sys.exit(3)
+    try:
+        person_data = json.loads(json_content)
+    except Exception as ex2:
+        print(json_content)
+        #this is when openai doesn't actually return json.
+        print(ex2)
+        sys.exit(4)
+
+    return person_data
+
+def download_wikipedia_article(title=None, pageid=None, lang='en'):
     if pageid:
-        url = f"https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext&pageids={pageid}&format=json"
+        url = f"https://{lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext&pageids={pageid}&format=json"
     else:
-        url = f"https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext&titles={title}&format=json"
+        url = f"https://{lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext&titles={title}&format=json"
 
     headers = {'User-Agent': USER_AGENT}
     response = requests.get(url, headers=headers)
@@ -107,8 +174,8 @@ def download_wikipedia_article(title=None, pageid=None):
     else:
         raise ValueError("Page does not exist")
 
-def search_wikipedia(title, hint=None):
-    url = f"https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={title}&format=json"
+def search_wikipedia(title, hint=None, lang='en'):
+    url = f"https://{lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch={title}&format=json"
     headers = {'User-Agent': USER_AGENT}
     response = requests.get(url, headers=headers)
     response.raise_for_status()
@@ -117,12 +184,12 @@ def search_wikipedia(title, hint=None):
         for el in search_results:
             el['snippet'] = strip_html_tags(el['snippet'])
         pageid = pick_right_page(search_results, title, hint)
-        wikipedia_content, actual_title = download_wikipedia_article(pageid=pageid)
+        wikipedia_content, actual_title = download_wikipedia_article(pageid=pageid, lang=lang)
         return wikipedia_content, actual_title
     else:
         raise ValueError("No search results found")
 
-def pick_right_page(search_results, hint=None):
+def pick_right_page(search_results, title, hint=None):
     options = [json.dumps(result) for result in search_results]
     if hint:
         # Use GPT to determine the correct article based on the hint
@@ -153,16 +220,22 @@ def pick_right_page(search_results, hint=None):
         title_width = 40
         snippet_width = 80
         print("\r\n")
-        for idx, option in enumerate(search_results, 1):
-            title = option['title'].ljust(title_width)
-            print(f"\t{idx}\t{title}\t{option['snippet']}")
-            mm[idx] = option['pageid']
+        while True:
+            for idx, option in enumerate(search_results, 1):
+                title = option['title'].ljust(title_width)
+                print(f"\t{idx}\t{title}\t{option['snippet']}")
+                mm[idx] = option['pageid']
 
-        choice = int(input("Enter the number of the correct option: "))
+            try:
+                choice = int(input("Enter the number of the correct option: "))
+                break
+            except:
+                continue
+
         pageid=mm[choice]
         return pageid
 
-if __name__ == "__main__":
+def main():
     parser = setup_argparse()
 
     if len(sys.argv) < 3:
@@ -179,21 +252,26 @@ if __name__ == "__main__":
             search_name = name_parts
             hint = None
 
-        wikipedia_content, actual_name = search_wikipedia(search_name, hint)
+        tt=[]
+        for lang_code in LANG_CODES:
+            try:
+                con, name = search_wikipedia(search_name, hint, lang=lang_code)
+                time.sleep(0.2)
+                tt.append((con, name, lang_code))
+            except ValueError:
+                wikipedia_content_en, actual_name_en = None, None
+            except requests.exceptions.ConnectionError as e2:
+                log_message(f"Connectino error: {e2} {lang_code}")
+                continue
+            except Exception as e3:
+                log_message(f"Bad lang: {e3} {lang_code}")
+                continue
 
-        cached_data = get_cached_file(actual_name)
-        if args.command == "force_lookup" or cached_data is None:
-            person_data = summarize_info_and_produce_blurb(wikipedia_content)
-            save_to_cache(actual_name, person_data)
-        else:
-            person_data = cached_data
+        summarize_info_and_produce_blurb(tt)
 
-        print(json.dumps(person_data, indent=4))
-    except argparse.ArgumentError as e:
-        log_message(f"Argument error: {e}")
-        parser.print_help()
-        sys.exit(1)
     except Exception as e:
         log_message(f"Unexpected error: {e}")
-        sys.exit(1)
+        sys.exit(7)
 
+if __name__ == "__main__":
+    main()

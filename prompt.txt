@@ -1,6 +1,7 @@
 f"""Please take the following information and produce a JSON like this, with an overall goal of giving all interesting personal information about life, origin, relationships, religion etc.
     {{
         "name": "<name>",
+        "language_info": <did you receive input in the prompt from multiple languages? which ones did you receive? list them and tell their overall content and interest>,
         "years": "<year and location of birth, year, age and cause of death (if applicable).  example 'born in mannheim 1930 and died in berlin age 15 in 1945 of a bomb explosion during a bank robbery'>,
         "origin": "<Town/region/nation of them and their ancestors, example: Jewish ancestors on mother's side, Irish/German on father's, parents were both 1st generation immigrants>",
         "race/religion of ancestors": "<both parents, and grandparents>"
@@ -19,9 +20,23 @@ f"""Please take the following information and produce a JSON like this, with an 
         "intellectual output": [<list of major items, with years, effects, meaning etc.>],
         "artistic output": [<list of major items, with years, effects, meaning etc.>],
         "other_careers": [<list of all their careers, with length.>],
+        "language_comments": [<Notes on any variations by language - did some of the included language information vary? did they contradict each other?>, ...],
+        "language_sentiment": [<For each language analyse sentiment. How positive/negative? how fair/unfiar? how significant, interested, etc were they? etc. Please be expansive and detailed here.>, ...],
         "comments": "<comments here such as what languages they speak, or your commentary about whether it's easy or hard to get info in this person..>",
-        "preformatted-life-timeline": "<finally, out put a preformatted, ascii timeline of the person from birth to today or their death with the major life events, years, and the person's age they occurred.>",
+        life-timeline": "<finally, out put a detailed, branching, wonderful ascii timeline for 200 character, fixed width monitors, of this person from birth to today or their death with the major life events, years, and the person's age they occurred.>",
     }}
+
+    You will receive multiple language basic details. If there is a contradiction between the languages, please note it in your output by labelling the differences.  Be sure to include even minority viewpoints.  All output text should be English even if it originates in other languages.
+
+    If you return a number but also text with it, you MUST quote the response. Make SURE to quote the response appropriately so it is valid JSON.
+
+    You may only return valid json.
+
+    Make SURE not to include trailing commas since json doesn't like that at all.
+
+    Example LANG:
+    "number_of_children": ["english_wikipedia":3, "spanish_wikipedia":7]
+    Evaluation: this is very good to highlight gaps and differences. But if the sources agree, there is no need to highlight the distinct reports and information!
 
     Example of BAD things - you should NOT include things like this, since there is no content to these empty lists. You should just skip those. You are free to modify the json format by skipping fields.
     <<< BAD EXAMPLE: "criminal_or_drug_issues": null,
@@ -45,6 +60,8 @@ f"""Please take the following information and produce a JSON like this, with an 
     Also, if a field is "unknown" just skip it. you don't need to included it if you don't know what to say, and it's okay if items in lists are irregular - i.e. you know the value of one field for one of them, and include it, but totally skip that field for another item. That's fine, just cut out the stuff that's unnecessary.
 
     Overall, don't include things that are uninteresting. My interests are in science, technologic, society and culture, not so much into current day political controversies or the mainstream. Focus on things that will last, like major world contributions and changes rather than ephemeral fluff.
+
+    Do not include comments in the output json.
 
     Here are some BAD patterns, with reasons why each is bad.
 
@@ -70,6 +87,11 @@ f"""Please take the following information and produce a JSON like this, with an 
     "criminal_or_drug_issues": [
         {{}}
     ],
+
+    Example 4:
+         "Napoleon's age": 9-15,
+    Evaluation: this is really bad since that is not legal json. You MUST quote your values, so it should be: "Napoleon's age": "9-15",
+
     Evaluation: This is bad because there is no content here. Instead, you should just skip the entire block since there's nothing in it.
 
     Here is the data: {article_text}.
