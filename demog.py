@@ -127,7 +127,7 @@ def summarize_info_and_produce_blurb(article_text_title_lang):
         max_tokens=4000
     )
 
-    fn='%Y%m%d_%H%M%S_response.txt'
+    fn='responses/%Y%m%d_%H%M%S_response.txt'
     print(fn)
     end_time=time.time()
     filename = time.strftime(fn, time.localtime(end_time))
